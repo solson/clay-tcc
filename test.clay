@@ -1,0 +1,76 @@
+import tcc.*;
+
+lowLevelTest() {
+    // A string holding the C program we will Just-In-Time compile with TCC.
+	var program = "
+    int fib(int n) {
+		if(n <= 2)
+			return 1;
+		else
+			return fib(n-1) + fib(n-2);
+	}
+
+	int foo(int n) {
+		printf(\"Hello world!\\n\");
+		printf(\"fib(%d) = %d\\n\", n, fib(n));
+		printf(\"add(%d, %d) = %d\\n\", n, 2 * n, add(n, 2 * n));
+		return 0;
+	}";
+
+	// Create a new TCC compilation context and compile the above C program.
+	var tcc = TCC();
+	alias s = tcc.state;
+	tcc_compile_string(s, cstring(program));
+
+	// Add Clay's "+" operator visible to the C code as "add".
+	tcc_add_symbol(s, cstring("add"), RawPointer(makeCCodePointer(add, Int, Int)));
+
+	// You can't get functions and symbols from the compiled code until you relocate.
+	alias size = tcc_relocate(s, null(Byte)); /* get needed size of the code */
+	var mem = allocateRawMemory(Byte, size);
+	tcc_relocate(s, mem);
+
+	// Get and call the "foo" function from the C program.
+	var func = CCodePointer[Int,Int](tcc_get_symbol(s, cstring("foo")));
+	func(32);
+
+	// Free the memory used to relocate.
+	freeRawMemory(mem);
+}
+
+highLevelTest() {
+    // A string holding the C program we will Just-In-Time compile with TCC.
+	var program = "
+    int fib(int n) {
+		if(n <= 2)
+			return 1;
+		else
+			return fib(n-1) + fib(n-2);
+	}
+
+	int foo(int n) {
+		printf(\"Hello world!\\n\");
+		printf(\"fib(%d) = %d\\n\", n, fib(n));
+		printf(\"add(%d, %d) = %d\\n\", n, 2 * n, add(n, 2 * n));
+		return 0;
+	}";
+    
+    // Create a new TCC compilation context and compile the above C program.
+	var tcc = TCC();
+	compileString(tcc, program);
+
+    // Add Clay's "+" operator visible to the C code as "add".
+	addFunction(tcc, "add", add, Int, Int);
+
+    // You can't get functions and symbols from the compiled code until you relocate.
+    relocate(tcc);
+
+    // Get and call the "foo" function from the C program.
+	var func = getFunction(tcc, "foo", (Int), (Int));
+	func(32);
+}
+
+main() {
+	lowLevelTest();
+	highLevelTest();
+}

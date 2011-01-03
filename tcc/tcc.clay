@@ -1,0 +1,132 @@
+public import tcc.generated.*;
+public import tcc.constants.*;
+
+
+//
+// TCC compilation context
+//
+record TCC (state: Pointer[TCCState], relocateMem: RawPointer);
+overload RegularRecord?(static TCC) = false;
+
+overload TCC() = TCC(TCC_OUTPUT_MEMORY);
+
+overload TCC(outputType) {
+	var state = tcc_new();
+	if (null?(state))
+		error("Could not create tcc state");
+	tcc_set_output_type(state, outputType);
+	return TCC(state, null(Byte));
+}
+
+overload BitwiseMovedType?(static TCC) = true;
+overload resetUnsafe(tcc:TCC) { tcc.state = null(TCCState); }
+overload destroy(tcc:TCC) {
+	tcc_delete(tcc.state);
+	if(not null?(tcc.relocateMem))
+		freeRawMemory(tcc.relocateMem);
+}
+
+
+/* add debug information in the generated code */
+enableDebug(tcc:TCC) { tcc_enable_debug(tcc.state); }
+
+/* set error/warning display callback */
+setErrorFunc(tcc:TCC, errorOpaque, errorFunc) {
+	tcc_set_error_func(tcc.state, errorOpaque, errorFunc);
+}
+
+/* set/reset a warning */
+setWarning(tcc:TCC, warningName, value)
+	= tcc_set_warning(tcc.state, warningName, value);
+
+
+//
+// Preprocessor
+//
+addIncludePath(tcc:TCC, path)
+	= tcc_add_include_path(tcc.state, cstring(path));
+
+addSystemIncludePath(tcc:TCC, path)
+	= tcc_add_sysinclude_path(tcc.state, cstring(path));
+
+defineSymbol(tcc:TCC, sym, value) {
+	tcc_define_symbol(tcc.state, cstring(sym), cstring(value));
+}
+
+overload defineSymbol(tcc:TCC, sym) {
+	tcc_define_symbol(tcc.state, cstring(sym), cstring(""));
+}
+
+undefineSymbol(tcc:TCC, sym) {
+	tcc_undefine_symbol(tcc.state, cstring(sym));
+}
+
+
+//
+// Compiling
+//
+/* add a file (either a C file, dll, an object, a library or an ld
+   script). Return -1 if error. */
+addFile(tcc:TCC, path) = tcc_add_file(tcc.state, cstring(path));
+
+/* compile a string containing a C source. Return non zero if
+   error. */
+compileString(tcc:TCC, code) = tcc_compile_string(tcc.state, cstring(code));
+
+
+//
+// Linking commands
+//
+/* set output type. MUST BE CALLED before any compilation */
+setOutputType(tcc:TCC, outputType)
+	= tcc_set_output_type(tcc.state, outputType);
+
+/* equivalent to -Lpath option */
+addLibraryPath(tcc:TCC, path)
+	= tcc_add_library_path(tcc.state, cstring(path));
+
+/* the library name is the same as the argument of the '-l' option */
+addLibrary(tcc:TCC, libraryname)
+	= tcc_add_library(tcc.state, cstring(libraryname));
+
+/* add a symbol to the compiled program */
+addSymbol(tcc:TCC, name, val)
+	= tcc_add_symbol(tcc.state, cstring(name), RawPointer(val));
+
+/* add a function to the compiled program */
+addFunction(tcc:TCC, name, func, ...inputs)
+	= addSymbol(tcc, name, makeCCodePointer(func, ...inputs));
+
+/* output an executable, library or object file. DO NOT call
+   tcc_relocate() before. */
+outputFile(tcc:TCC, filename)
+	= tcc_output_file(tcc.state, cstring(filename));
+
+/* link and run main() function and return its value. DO NOT call
+   tcc_relocate() before. */
+run(tcc:TCC, argc, argv)
+	= tcc_run(tcc.state, Int(argc), Pointer[Pointer[Char]](argv));
+
+overload run(tcc:TCC, args)
+	= run(tcc, size(args), begin(map(cstring, args)));
+
+/* copy code into memory passed in by the caller and do all relocations
+   (needed before using tcc_get_symbol()).
+   returns -1 on error and required size if ptr is NULL */
+relocate(tcc:TCC) {
+	if(not null?(tcc.relocateMem))
+		freeRawMemory(tcc.relocateMem);
+	tcc.relocateMem <-- allocateRawMemory(Byte, relocateSize(tcc));
+	return tcc_relocate(tcc.state, tcc.relocateMem);
+}
+
+relocateSize(tcc:TCC) = tcc_relocate(tcc.state, null(Byte));
+
+/* return symbol value or NULL if not found */
+getSymbol(tcc:TCC, name) = tcc_get_symbol(tcc.state, cstring(name));
+
+getFunction(tcc:TCC, name, input, output)
+	= CCodePointer[input, output](getSymbol(tcc, name));
+
+/* set CONFIG_TCCDIR at runtime */
+setLibPath(tcc:TCC, path) { tcc_set_lib_path(tcc.state, cstring(path)); }

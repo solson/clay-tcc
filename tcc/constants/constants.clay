@@ -1,0 +1,9 @@
+alias TCC_OUTPUT_FORMAT_ELF    = 0; /* default output format: ELF */
+alias TCC_OUTPUT_FORMAT_BINARY = 1; /* binary image output */
+alias TCC_OUTPUT_FORMAT_COFF   = 2; /* COFF */
+
+alias TCC_OUTPUT_MEMORY     = 0; /* output will be ran in memory (no output file) (default) */
+alias TCC_OUTPUT_EXE        = 1; /* executable file */
+alias TCC_OUTPUT_DLL        = 2; /* dynamic library */
+alias TCC_OUTPUT_OBJ        = 3; /* object file */
+alias TCC_OUTPUT_PREPROCESS = 4; /* preprocessed file (used internally) */
