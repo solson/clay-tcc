@@ -19,7 +19,10 @@ overload TCC(outputType) {
 }
 
 overload BitwiseMovedType?(static TCC) = true;
-overload resetUnsafe(tcc:TCC) { tcc.state = null(TCCState); }
+overload resetUnsafe(tcc:TCC) {
+	tcc.state = null(TCCState);
+	tcc.relocateMem = null(Byte);
+}
 overload destroy(tcc:TCC) {
 	tcc_delete(tcc.state);
 	if(not null?(tcc.relocateMem))
